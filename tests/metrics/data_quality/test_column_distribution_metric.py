@@ -5,10 +5,10 @@ import pandas as pd
 import pytest
 
 from evidently import ColumnMapping
-from evidently.metrics.base_metric import InputData
 from evidently.metrics.data_quality.column_distribution_metric import ColumnDistributionMetric
 from evidently.metrics.data_quality.column_distribution_metric import ColumnDistributionMetricResult
 from evidently.report import Report
+from evidently.utils.visualizations import Distribution
 
 
 @pytest.mark.parametrize(
@@ -20,7 +20,7 @@ from evidently.report import Report
             ColumnDistributionMetric(column_name="category_feature"),
             ColumnDistributionMetricResult(
                 column_name="category_feature",
-                current={"n": 3, "d": 2, "p": 1},
+                current=Distribution(x=pd.Series(["n", "d", "p"]), y=pd.Series([3, 2, 1])),
                 reference=None,
             ),
         ),
@@ -33,10 +33,11 @@ def test_column_distribution_metric_success(
     expected_result: ColumnDistributionMetricResult,
 ) -> None:
     data_mapping = ColumnMapping()
-    result = metric.calculate(
-        data=InputData(current_data=current_dataset, reference_data=reference_dataset, column_mapping=data_mapping)
-    )
-    assert result == expected_result
+    report = Report(metrics=[metric])
+    report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=data_mapping)
+    result = metric.get_result()
+    assert list(result.current.x) == list(expected_result.current.x)
+    assert list(result.current.y) == list(expected_result.current.y)
 
 
 @pytest.mark.parametrize(
@@ -63,11 +64,9 @@ def test_column_distribution_metric_value_error(
     error_message: str,
 ) -> None:
     with pytest.raises(ValueError) as error:
-        metric.calculate(
-            data=InputData(
-                current_data=current_dataset, reference_data=reference_dataset, column_mapping=ColumnMapping()
-            )
-        )
+        report = Report(metrics=[metric])
+        report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=ColumnMapping())
+        metric.get_result()
 
     assert error.value.args[0] == error_message
 
@@ -79,7 +78,7 @@ def test_column_distribution_metric_value_error(
             pd.DataFrame({"col": [1, 2, 3]}),
             None,
             ColumnDistributionMetric(column_name="col"),
-            {"column_name": "col", "current": {"1": 1, "2": 1, "3": 1}, "reference": None},
+            {"column_name": "col"},
         ),
         (
             pd.DataFrame({"col1": [1, 2, 3], "col2": [10, 20, 3.5]}),
@@ -90,7 +89,7 @@ def test_column_distribution_metric_value_error(
                 }
             ),
             ColumnDistributionMetric(column_name="col1"),
-            {"column_name": "col1", "current": {"1": 1, "2": 1, "3": 1}, "reference": {"10.0": 1, "20.0": 1, "3.5": 1}},
+            {"column_name": "col1"},
         ),
     ),
 )
@@ -100,9 +99,8 @@ def test_column_distribution_metric_with_report(
     report = Report(metrics=[metric])
     report.run(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
     assert report.show()
-    json_result = report.json()
-    assert len(json_result) > 0
-    parsed_json_result = json.loads(json_result)
-    assert "metrics" in parsed_json_result
-    assert "ColumnDistributionMetric" in parsed_json_result["metrics"]
-    assert json.loads(json_result)["metrics"]["ColumnDistributionMetric"] == expected_json
+    result_json = report.json()
+    assert len(result_json) > 0
+    result = json.loads(result_json)
+    assert result["metrics"][0]["metric"] == "ColumnDistributionMetric"
+    assert result["metrics"][0]["result"] == expected_json

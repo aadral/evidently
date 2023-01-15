@@ -1,4 +1,3 @@
-import uuid
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -8,10 +7,10 @@ from dataclasses import dataclass
 
 from evidently.calculations.data_drift import ColumnDataDriftMetrics
 from evidently.calculations.data_drift import get_drift_for_columns
+from evidently.calculations.stattests import PossibleStatTestType
 from evidently.metrics.base_metric import InputData
 from evidently.metrics.base_metric import Metric
 from evidently.model.widget import BaseWidgetInfo
-from evidently.options import ColorOptions
 from evidently.options import DataDriftOptions
 from evidently.renderers.base_renderer import MetricRenderer
 from evidently.renderers.base_renderer import default_renderer
@@ -42,16 +41,32 @@ class DataDriftTable(Metric[DataDriftTableResults]):
     columns: Optional[List[str]]
     options: DataDriftOptions
 
-    def __init__(self, columns: Optional[List[str]] = None, options: Optional[DataDriftOptions] = None):
+    def __init__(
+        self,
+        columns: Optional[List[str]] = None,
+        stattest: Optional[PossibleStatTestType] = None,
+        cat_stattest: Optional[PossibleStatTestType] = None,
+        num_stattest: Optional[PossibleStatTestType] = None,
+        per_column_stattest: Optional[Dict[str, PossibleStatTestType]] = None,
+        stattest_threshold: Optional[float] = None,
+        cat_stattest_threshold: Optional[float] = None,
+        num_stattest_threshold: Optional[float] = None,
+        per_column_stattest_threshold: Optional[Dict[str, float]] = None,
+    ):
         self.columns = columns
-        if options is None:
-            self.options = DataDriftOptions()
-
-        else:
-            self.options = options
+        self.options = DataDriftOptions(
+            all_features_stattest=stattest,
+            cat_features_stattest=cat_stattest,
+            num_features_stattest=num_stattest,
+            per_feature_stattest=per_column_stattest,
+            all_features_threshold=stattest_threshold,
+            cat_features_threshold=cat_stattest_threshold,
+            num_features_threshold=num_stattest_threshold,
+            per_feature_threshold=per_column_stattest_threshold,
+        )
 
     def get_parameters(self) -> tuple:
-        return tuple((self.options,))
+        return None if self.columns is None else tuple(self.columns), self.options
 
     def calculate(self, data: InputData) -> DataDriftTableResults:
         if data.reference_data is None:
@@ -96,10 +111,7 @@ class DataDriftTableRenderer(MetricRenderer):
 
         return result
 
-    @staticmethod
-    def _generate_column_params(
-        item_id: str, column_name: str, data: ColumnDataDriftMetrics
-    ) -> Optional[RichTableDataRow]:
+    def _generate_column_params(self, column_name: str, data: ColumnDataDriftMetrics) -> Optional[RichTableDataRow]:
         if data.current_small_distribution is None or data.reference_small_distribution is None:
             return None
 
@@ -120,10 +132,15 @@ class DataDriftTableRenderer(MetricRenderer):
                 y1=data.plot_shape["y1"],
                 y_name=data.column_name,
                 x_name=data.x_name,
+                color_options=self.color_options,
             )
             scatter = plotly_figure(title="", figure=scatter_fig)
             details.with_part("DATA DRIFT", info=scatter)
-        fig = get_distribution_plot_figure(data.current_distribution, data.reference_distribution)
+        fig = get_distribution_plot_figure(
+            current_distribution=data.current_distribution,
+            reference_distribution=data.reference_distribution,
+            color_options=self.color_options,
+        )
         distribution = plotly_figure(title="", figure=fig)
         details.with_part("DATA DISTRIBUTION", info=distribution)
         return RichTableDataRow(
@@ -141,7 +158,7 @@ class DataDriftTableRenderer(MetricRenderer):
 
     def render_html(self, obj: DataDriftTable) -> List[BaseWidgetInfo]:
         results = obj.get_result()
-        color_options = ColorOptions()
+        color_options = self.color_options
         target_column = results.dataset_columns.utility_columns.target
         prediction_column = results.dataset_columns.utility_columns.prediction
 
@@ -156,25 +173,17 @@ class DataDriftTableRenderer(MetricRenderer):
         )
         # move target and prediction to the top of the table
         columns = []
-
-        if target_column:
+        if target_column in all_columns:
             columns.append(target_column)
-
-            if target_column in all_columns:
-                all_columns.remove(target_column)
-
-        if prediction_column and isinstance(prediction_column, str):
+            all_columns.remove(target_column)
+        if isinstance(prediction_column, str) and prediction_column in all_columns:
             columns.append(prediction_column)
-
-            if prediction_column in all_columns:
-                all_columns.remove(prediction_column)
+            all_columns.remove(prediction_column)
 
         columns = columns + all_columns
 
-        item_id = str(uuid.uuid4())
-
         for column_name in columns:
-            column_params = self._generate_column_params(item_id, column_name, results.drift_by_columns[column_name])
+            column_params = self._generate_column_params(column_name, results.drift_by_columns[column_name])
 
             if column_params is not None:
                 params_data.append(column_params)
@@ -182,7 +191,7 @@ class DataDriftTableRenderer(MetricRenderer):
         drift_percents = round(results.share_of_drifted_columns * 100, 3)
 
         return [
-            header_text(label="Data Drift Report"),
+            header_text(label="Data Drift Summary"),
             rich_table_data(
                 title=f"Drift is detected for {drift_percents}% of columns "
                 f"({results.number_of_drifted_columns} out of {results.number_of_columns}).",

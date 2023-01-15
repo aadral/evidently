@@ -120,22 +120,29 @@ class ColumnSummaryMetric(Metric[ColumnSummary]):
 
     def calculate(self, data: InputData) -> ColumnSummary:
         columns = process_columns(data.current_data, data.column_mapping)
-        # define target type and prediction type. TODO move it to process_columns func
-        if self.column_name not in data.current_data.columns:
-            raise ValueError(f"{self.column_name} not in current data")
+
+        if self.column_name not in data.current_data:
+            raise ValueError(f"Column '{self.column_name}' not found in current dataset.")
+
+        if data.reference_data is not None and self.column_name not in data.reference_data:
+            raise ValueError(f"Column '{self.column_name}' not found in reference dataset.")
+
         column_type = None
         target_name = columns.utility_columns.target
         target_type = None
         data_by_target = None
+
+        # define target type and prediction type. TODO move it to process_columns func
         if columns.utility_columns.target is not None:
-            if data.column_mapping.task == "regression" or is_numeric_dtype(data.current_data[target_name]):
+            reg_condition = data.column_mapping.task == "regression" or (
+                is_numeric_dtype(data.current_data[target_name])
+                and columns.task != "classification"
+                and data.current_data[target_name].nunique() > 5
+            )
+            if reg_condition:
                 target_type = "num"
-            elif data.column_mapping.task == "classification" or is_string_dtype(data.current_data[target_name]):
-                target_type = "cat"
-            elif data.current_data[columns.utility_columns.target].nunique() <= 5:
-                target_type = "cat"
             else:
-                target_type = "num"
+                target_type = "cat"
             if target_name == self.column_name:
                 column_type = target_type
 
@@ -144,10 +151,26 @@ class ColumnSummaryMetric(Metric[ColumnSummary]):
                 isinstance(columns.utility_columns.prediction, str)
                 and columns.utility_columns.prediction == self.column_name
             ):
-                if is_string_dtype(data.current_data[columns.utility_columns.prediction]):
+                if (
+                    is_string_dtype(data.current_data[columns.utility_columns.prediction])
+                    or (
+                        is_numeric_dtype(data.current_data[columns.utility_columns.prediction])
+                        and columns.task != "classification"
+                        and data.current_data[columns.utility_columns.prediction].nunique() < 5
+                    )
+                    or (
+                        is_numeric_dtype(data.current_data[columns.utility_columns.prediction])
+                        and columns.task == "classification"
+                        and (
+                            data.current_data[columns.utility_columns.prediction].max() > 1
+                            or data.current_data[columns.utility_columns.prediction].min() < 0
+                        )
+                    )
+                ):
                     column_type = "cat"
-                if is_numeric_dtype(data.current_data[columns.utility_columns.prediction]):
+                else:
                     column_type = "num"
+
             if (
                 isinstance(columns.utility_columns.prediction, list)
                 and self.column_name in columns.utility_columns.prediction
@@ -331,16 +354,18 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
             metrics_values_headers = ["current", "reference"]
 
         if column_type == "cat":
-            fig = plot_distr(hist_curr, hist_ref)
+            fig = plot_distr(hist_curr=hist_curr, hist_ref=hist_ref, color_options=self.color_options)
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig = json.loads(fig.to_json())
         if column_type == "num":
             ref_log = None
             if "reference_log" in bins_for_hist.keys():
                 ref_log = bins_for_hist["reference_log"]
-            fig = plot_distr_with_log_button(hist_curr, bins_for_hist["current_log"], hist_ref, ref_log)
+            fig = plot_distr_with_log_button(
+                hist_curr, bins_for_hist["current_log"], hist_ref, ref_log, color_options=self.color_options
+            )
         if column_type == "datetime":
-            fig = plot_time_feature_distr(hist_curr, hist_ref, column_name)
+            fig = plot_time_feature_distr(hist_curr, hist_ref, column_name, color_options=self.color_options)
 
         # additional plots
         additional_graphs = []
@@ -353,6 +378,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     column_name,
                     metric_result.plot_data.data_in_time.datetime_name,
                     metric_result.plot_data.data_in_time.freq,
+                    color_options=self.color_options,
                 )
             if column_type == "cat":
                 feature_in_time_figure = plot_cat_feature_in_time(
@@ -361,6 +387,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     column_name,
                     metric_result.plot_data.data_in_time.datetime_name,
                     metric_result.plot_data.data_in_time.freq,
+                    color_options=self.color_options,
                 )
             additional_graphs.append(
                 AdditionalGraphInfo(
@@ -385,6 +412,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     ref_data_by_target,
                     column_name,
                     target_name,
+                    self.color_options,
                 )
             if column_type == "cat" and target_type == "num":
                 feature_by_target_figure = plot_boxes(
@@ -392,6 +420,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     ref_data_by_target,
                     target_name,
                     column_name,
+                    self.color_options,
                 )
             if column_type == "num" and target_type == "num":
                 feature_by_target_figure = plot_num_num_rel(
@@ -399,6 +428,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     ref_data_by_target,
                     target_name,
                     column_name,
+                    color_options=self.color_options,
                 )
             if column_type == "cat" and target_type == "cat":
                 feature_by_target_figure = plot_cat_cat_rel(
@@ -406,6 +436,7 @@ class ColumnSummaryMetricRenderer(MetricRenderer):
                     ref_data_by_target,
                     target_name,
                     column_name,
+                    color_options=self.color_options,
                 )
 
             additional_graphs.append(

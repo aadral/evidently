@@ -7,7 +7,6 @@ import pytest
 
 from evidently import ColumnMapping
 from evidently.metrics import ColumnQuantileMetric
-from evidently.metrics.base_metric import InputData
 from evidently.report import Report
 
 
@@ -15,9 +14,9 @@ def test_data_quality_quantile_metric_success() -> None:
     test_dataset = pd.DataFrame({"numerical_feature": [0, 2, 2, 2, 0]})
     data_mapping = ColumnMapping()
     metric = ColumnQuantileMetric(column_name="numerical_feature", quantile=0.5)
-    result = metric.calculate(
-        data=InputData(current_data=test_dataset, reference_data=None, column_mapping=data_mapping)
-    )
+    report = Report(metrics=[metric])
+    report.run(current_data=test_dataset, reference_data=None, column_mapping=data_mapping)
+    result = metric.get_result()
     assert result is not None
     assert result.quantile == 0.5
     assert result.current == 2
@@ -67,28 +66,77 @@ def test_data_quality_quantile_metric_value_errors(
     data_mapping = ColumnMapping()
 
     with pytest.raises(ValueError) as error:
-        metric.calculate(
-            data=InputData(current_data=current_dataset, reference_data=reference_dataset, column_mapping=data_mapping)
-        )
+        report = Report(metrics=[metric])
+        report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=data_mapping)
+        metric.get_result()
 
     assert error.value.args[0] == error_message
 
 
-def test_data_quality_quantile_metric_with_report() -> None:
-    current_data = pd.DataFrame({"numerical_feature": [0, 4, 1, 2, np.NaN]})
-    reference_data = pd.DataFrame({"numerical_feature": [0, 2, 2, 2, 0]})
-    metric = ColumnQuantileMetric(column_name="numerical_feature", quantile=0.5)
+@pytest.mark.parametrize(
+    "current, reference, column_mapping, metric, expected_json",
+    (
+        (
+            pd.DataFrame({"numerical_feature": [0, 4, 1, 2, np.NaN]}),
+            pd.DataFrame({"numerical_feature": [0, 2, 2, 2, 0]}),
+            ColumnMapping(),
+            ColumnQuantileMetric(column_name="numerical_feature", quantile=0.5),
+            {
+                "column_name": "numerical_feature",
+                "current": 1.5,
+                "quantile": 0.5,
+                "reference": 2.0,
+            },
+        ),
+        (
+            pd.DataFrame(
+                {
+                    "feature1": [1, 1, 2, 2, 5],
+                    "feature2": [1, 1, 2, 2, 8],
+                    "my_target": [1, 0, 1, 1, 0],
+                    "prediction": [1, 0, 1, 0, 0],
+                }
+            ),
+            None,
+            ColumnMapping(target="my_target"),
+            ColumnQuantileMetric(column_name="my_target", quantile=0.5),
+            {"column_name": "my_target", "current": 1.0, "quantile": 0.5, "reference": None},
+        ),
+        (
+            pd.DataFrame(
+                {
+                    "my_target": [1, np.NaN, 3] * 1000,
+                    "my_prediction": [1, 2, np.NaN] * 1000,
+                    "feature_1": [1, 2, 3] * 1000,
+                    "feature_2": ["a", np.NaN, "a"] * 1000,
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "my_target": [1, 2, 3] * 10000,
+                    "my_prediction": [1, 2, 1] * 10000,
+                    "feature_1": [1, 2, 3] * 10000,
+                    "feature_2": ["a", "a", "a"] * 10000,
+                }
+            ),
+            ColumnMapping(target="my_target", prediction="my_prediction"),
+            ColumnQuantileMetric(column_name="my_target", quantile=0.5),
+            {"column_name": "my_target", "current": 2.0, "quantile": 0.5, "reference": 2.0},
+        ),
+    ),
+)
+def test_column_quantile_metric_with_report(
+    current: pd.DataFrame,
+    reference: Optional[pd.DataFrame],
+    column_mapping: ColumnMapping,
+    metric: ColumnQuantileMetric,
+    expected_json: dict,
+) -> None:
     report = Report(metrics=[metric])
-    report.run(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
+    report.run(current_data=current, reference_data=reference, column_mapping=column_mapping)
     assert report.show()
-    json_result = report.json()
-    assert len(json_result) > 0
-    parsed_json_result = json.loads(json_result)
-    assert "metrics" in parsed_json_result
-    assert "ColumnQuantileMetric" in parsed_json_result["metrics"]
-    assert json.loads(json_result)["metrics"]["ColumnQuantileMetric"] == {
-        "column_name": "numerical_feature",
-        "current": 1.5,
-        "quantile": 0.5,
-        "reference": 2.0,
-    }
+    result_json = report.json()
+    assert len(result_json) > 0
+    result = json.loads(result_json)
+    assert result["metrics"][0]["metric"] == "ColumnQuantileMetric"
+    assert result["metrics"][0]["result"] == expected_json

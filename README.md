@@ -7,7 +7,7 @@
   |
   <a href="https://discord.gg/xZjKRaNp8b">Discord Community</a>
   |
-  <a href="https://evidentlyai.com/sign-up">Newsletter</a>
+  <a href="https://www.evidentlyai.com/user-newsletter">User Newsletter</a>
   | 
   <a href="https://evidentlyai.com/blog">Blog</a>
   | 
@@ -38,7 +38,7 @@ Tests are best for automated batch model checks. You can integrate them as a pip
 
 ![Report example](docs/images/evidently_reports_main-min.png)
 
-Reports calculate various data and ML **metrics** and render rich **visualizations**. You can create a custom Report or run a preset to evaluate a specific aspect of the model or data performance. For example, a [**Data Quality**](https://docs.evidentlyai.com/reports/data-quality) or [**Classification Performance**](https://docs.evidentlyai.com/reports/classification-performance) report.
+Reports calculate various data and ML **metrics** and render rich **visualizations**. You can create a custom Report or run a preset to evaluate a specific aspect of the model or data performance. For example, a [**Data Quality**](https://docs.evidentlyai.com/presets/data-quality) or [**Classification Performance**](https://docs.evidentlyai.com/presets/class-performance) report.
 
 You can get an **HTML report** (best for exploratory analysis and debugging) or export results as **JSON** or Python dictionary (best for logging, documention or to integrate with BI tools). 
 
@@ -81,7 +81,7 @@ Unfortunately, building reports inside a Jupyter notebook is not yet possible fo
 
 # :arrow_forward: Getting started
 > **Note**
-> This is a simple Hello World example. You can find a complete [Getting Started Tutorial](https://docs.evidentlyai.com/tutorial) in the docs.
+> This is a simple Hello World example. You can find a complete [Getting Started Tutorial](https://docs.evidentlyai.com/get-started/tutorial) in the docs.
 
 ## Jupyter Notebook
 To start, prepare your data as two pandas `DataFrames`. The first should include your reference data, the second - current production data. The structure of both datasets should be identical. To run some of the evaluations (e.g. Data Drift), you need input features only. In other cases (e.g. Target Drift, Classification Performance), you need Target and/or Prediction. 
@@ -166,19 +166,18 @@ data_drift_report.json()
 We welcome contributions! Read the [Guide](CONTRIBUTING.md) to learn more. 
 
 # :books: Documentation
-For more information, refer to a complete <a href="https://docs.evidentlyai.com">Documentation</a>. You can start with this [Tutorial](https://docs.evidentlyai.com/tutorial) for a quick introduction.
+For more information, refer to a complete <a href="https://docs.evidentlyai.com">Documentation</a>. You can start with this [Tutorial](https://docs.evidentlyai.com/get-started/tutorial) for a quick introduction.
 
 # :card_index_dividers: Examples
 Here you can find simple examples on toy datasets to quickly explore what Evidently can do right out of the box.
 
-| Contents                                               | Jupyter notebook                                                                                 | Colab notebook                                                                    | Data source                                                                            |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Evidently Tests| [link](sample_notebooks/evidently_tests.ipynb) | [link](https://colab.research.google.com/drive/1nQhfXft4VZ3G7agvXgH_LqVHdCh-WaMl) | Adult data set openml, California housing sklearn.datasets, Breast cancer sklearn.datasets, Iris plants sklearn.datasets |
-| Evidently Test Presets| [link](sample_notebooks/evidently_test_presets.ipynb) | [link](https://colab.research.google.com/drive/1CBAFY1qmHHV_72SC7YBeaD4c6LLpPQan) | Adult data set openml, California housing sklearn.datasets, Breast cancer sklearn.datasets, Iris plants sklearn.datasets |
-| Evidently Metrics| [link](sample_notebooks/evidently_metrics.ipynb) | [link](https://colab.research.google.com/drive/1IpfQsq5dmjuG_Qbn6BNtghq6aubZBP5A) | Adult data set openml |
-| Evidently Metric Presets| [link](sample_notebooks/evidently_metric_presets.ipynb) | [link](https://colab.research.google.com/drive/1wmHWipPd6iEy9Ce8NWBcxs_BSa9hgKgk) | Adult data set openml, California housing sklearn.datasets, Breast cancer sklearn.datasets, Iris plants sklearn.datasets |
-
-You can see examples from old Dashboard API [here](https://github.com/evidentlyai/evidently/tree/main/examples/sample_notebooks). 
+Report | Jupyter notebook | Colab notebook | Contents
+--- | --- | --- | ---
+Getting Started Tutorial| [link](https://github.com/evidentlyai/evidently/blob/main/examples/sample_notebooks/getting_started_tutorial.ipynb)|[link](https://colab.research.google.com/drive/1j0Wh4LM0mgMuDY7LQciLaUV4G1khB-zb)|Data Stability and custom test suites, Data Drift and Target Drift reports
+Evidently Metric Presets| [link](https://github.com/evidentlyai/evidently/blob/main/examples/sample_notebooks/evidently_metric_presets.ipynb) | [link](https://colab.research.google.com/drive/1wmHWipPd6iEy9Ce8NWBcxs_BSa9hgKgk) | Data Drift, Target Drift, Data Quality, Regression, Classification reports
+Evidently Metrics| [link](https://github.com/evidentlyai/evidently/blob/main/examples/sample_notebooks/evidently_metrics.ipynb) | [link](https://colab.research.google.com/drive/1IpfQsq5dmjuG_Qbn6BNtghq6aubZBP5A) | All individual metrics
+Evidently Test Presets| [link](https://github.com/evidentlyai/evidently/blob/main/examples/sample_notebooks/evidently_test_presets.ipynb) | [link](https://colab.research.google.com/drive/1CBAFY1qmHHV_72SC7YBeaD4c6LLpPQan) | NoTargetPerformance, Data Stability, Data Quality, Data Drift Regression, Milti-class Classification, Binary Classification, Binary Classification top-K test suites
+Evidently Tests| [link](https://github.com/evidentlyai/evidently/blob/main/examples/sample_notebooks/evidently_tests.ipynb) | [link](https://colab.research.google.com/drive/1nQhfXft4VZ3G7agvXgH_LqVHdCh-WaMl)| All individual tests
 
 ## Integrations
 See how to integrate Evidently in your prediction pipelines and use it with other tools. 
@@ -189,11 +188,8 @@ See how to integrate Evidently in your prediction pipelines and use it with othe
 | Batch ML monitoring with Airflow     | [Evidently + Airflow](examples/integrations/airflow_drift_detection/)    |
 | Log Evidently metrics in MLflow UI   | [Evidently + MLflow](examples/integrations/mlflow_logging/)              |
 
-# :phone: Community Call 
+# :phone: User Newsletter 
+To get updates on new features, integrations and code tutorials, sign up for the [Evidently User Newsletter](https://www.evidentlyai.com/user-newsletter). 
 
-We host monthly community call for users and contributors. [Sign up](https://evidentlyai.com/community-call-sign-up) to join the next one. 
-
-# :white_check_mark: Stay updated
-- If you want to receive updates, sign up for our [newsletter](https://evidentlyai.com/sign-up). 
-- You can also find more tutorials and explanations in our [Blog](https://evidentlyai.com/blog). 
-- If you want to chat and connect, join our [Discord community](https://discord.gg/xZjKRaNp8b)!
+# :white_check_mark: Discord Community
+If you want to chat and connect, join our [Discord community](https://discord.gg/xZjKRaNp8b)!

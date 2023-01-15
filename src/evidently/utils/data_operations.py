@@ -74,14 +74,14 @@ class DatasetColumns:
 
         return result
 
-    def get_all_columns_list(self) -> List[str]:
+    def get_all_columns_list(self, skip_id_column: bool = False) -> List[str]:
         """List all columns."""
         result: List[str] = self.cat_feature_names + self.num_feature_names
         result.extend(
             [
                 name
                 for name in (
-                    self.utility_columns.id_column,
+                    self.utility_columns.id_column if not skip_id_column else None,
                     self.utility_columns.date,
                     self.utility_columns.target,
                     self.utility_columns.prediction,
@@ -249,23 +249,29 @@ def recognize_column_type(
     columns: DatasetColumns,
 ) -> str:
     """Try to get the column type."""
+    column = dataset[column_name]
+    reg_condition = columns.task == "regression" or (
+        pd.api.types.is_numeric_dtype(column) and columns.task != "classification" and column.nunique() > 5
+    )
     if column_name == columns.utility_columns.target:
-        if columns.task == "regression":
+        if reg_condition:
             return "num"
 
         else:
             return "cat"
 
     if column_name == columns.utility_columns.prediction:
-        column = dataset[column_name]
 
-        if columns.task == "regression" or (pd.api.types.is_numeric_dtype(column.dtype) and column.nunique() > 5):
+        if reg_condition:
             return "num"
 
         else:
             return "cat"
 
     if column_name in columns.num_feature_names:
+        return "num"
+
+    if isinstance(columns.utility_columns.prediction, list) and column_name in columns.utility_columns.prediction:
         return "num"
 
     if column_name in columns.cat_feature_names:

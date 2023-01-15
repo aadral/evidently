@@ -1,7 +1,6 @@
 import copy
 import uuid
 from collections import Counter
-from datetime import datetime
 from typing import List
 from typing import Optional
 from typing import Union
@@ -9,10 +8,10 @@ from typing import Union
 import dataclasses
 import pandas as pd
 
-import evidently
 from evidently.metrics.base_metric import InputData
 from evidently.model.dashboard import DashboardInfo
 from evidently.model.widget import BaseWidgetInfo
+from evidently.options import ColorOptions
 from evidently.pipeline.column_mapping import ColumnMapping
 from evidently.suite.base_suite import Display
 from evidently.suite.base_suite import Suite
@@ -23,6 +22,7 @@ from evidently.tests.base_test import Test
 from evidently.tests.base_test import TestResult
 from evidently.utils.data_operations import DatasetColumns
 from evidently.utils.data_operations import process_columns
+from evidently.utils.data_preprocessing import create_data_definition
 from evidently.utils.generators import BaseGenerator
 
 
@@ -32,7 +32,12 @@ class TestSuite(Display):
     _test_presets: List[TestPreset]
     _test_generators: List[BaseGenerator]
 
-    def __init__(self, tests: Optional[List[Union[Test, TestPreset, BaseGenerator]]]):
+    def __init__(
+        self,
+        tests: Optional[List[Union[Test, TestPreset, BaseGenerator]]],
+        options: Optional[list] = None,
+    ):
+        super().__init__(options)
         self._inner_suite = Suite()
         self._test_presets = []
         self._test_generators = []
@@ -69,9 +74,11 @@ class TestSuite(Display):
             column_mapping = ColumnMapping()
 
         self._columns_info = process_columns(current_data, column_mapping)
+        data_definition = create_data_definition(reference_data, current_data, column_mapping)
 
+        data = InputData(reference_data, current_data, column_mapping, data_definition)
         for preset in self._test_presets:
-            tests = preset.generate_tests(InputData(reference_data, current_data, column_mapping), self._columns_info)
+            tests = preset.generate_tests(data, self._columns_info)
 
             for test in tests:
                 if isinstance(test, BaseGenerator):
@@ -84,7 +91,7 @@ class TestSuite(Display):
             self._add_tests_from_generator(test_generator)
 
         self._inner_suite.verify()
-        self._inner_suite.run_calculate(InputData(reference_data, current_data, column_mapping))
+        self._inner_suite.run_calculate(data)
         self._inner_suite.run_checks()
 
     def as_dict(self) -> dict:
@@ -98,8 +105,6 @@ class TestSuite(Display):
         total_tests = len(self._inner_suite.context.test_results)
 
         return {
-            "version": evidently.__version__,
-            "datetime": datetime.now().isoformat(),
             "tests": test_results,
             "summary": {
                 "all_passed": bool(self),
@@ -108,17 +113,17 @@ class TestSuite(Display):
                 "failed_tests": counter["FAIL"],
                 "by_status": counter,
             },
-            "columns_info": dataclasses.asdict(self._columns_info),
         }
 
     def _build_dashboard_info(self):
         test_results = []
         total_tests = len(self._inner_suite.context.test_results)
         by_status = {}
+        color_options = self.options_provider.get(ColorOptions)
 
         for test, test_result in self._inner_suite.context.test_results.items():
-            # renderer = find_test_renderer(type(test.obj), self._inner_suite.context.renderers)
             renderer = find_test_renderer(type(test), self._inner_suite.context.renderers)
+            renderer.color_options = color_options
             by_status[test_result.status] = by_status.get(test_result.status, 0) + 1
             test_results.append(renderer.render_html(test))
 

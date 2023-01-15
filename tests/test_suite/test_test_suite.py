@@ -7,39 +7,39 @@ from evidently import ColumnMapping
 from evidently.test_suite import TestSuite
 from evidently.tests import TestColumnAllConstantValues
 from evidently.tests import TestColumnAllUniqueValues
-from evidently.tests import TestColumnShareOfNulls
+from evidently.tests import TestColumnDrift
+from evidently.tests import TestColumnQuantile
+from evidently.tests import TestColumnRegExp
+from evidently.tests import TestColumnShareOfMissingValues
 from evidently.tests import TestColumnsType
-from evidently.tests import TestColumnValueRegExp
+from evidently.tests import TestColumnValueMax
+from evidently.tests import TestColumnValueMean
+from evidently.tests import TestColumnValueMedian
+from evidently.tests import TestColumnValueMin
+from evidently.tests import TestColumnValueStd
 from evidently.tests import TestConflictPrediction
 from evidently.tests import TestConflictTarget
-from evidently.tests import TestFeatureValueDrift
-from evidently.tests import TestFeatureValueMax
-from evidently.tests import TestFeatureValueMean
-from evidently.tests import TestFeatureValueMedian
-from evidently.tests import TestFeatureValueMin
-from evidently.tests import TestFeatureValueStd
 from evidently.tests import TestMeanInNSigmas
 from evidently.tests import TestMostCommonValueShare
 from evidently.tests import TestNumberOfColumns
-from evidently.tests import TestNumberOfColumnsWithNulls
+from evidently.tests import TestNumberOfColumnsWithMissingValues
 from evidently.tests import TestNumberOfConstantColumns
-from evidently.tests import TestNumberOfDriftedFeatures
+from evidently.tests import TestNumberOfDriftedColumns
 from evidently.tests import TestNumberOfDuplicatedColumns
 from evidently.tests import TestNumberOfDuplicatedRows
 from evidently.tests import TestNumberOfEmptyColumns
 from evidently.tests import TestNumberOfEmptyRows
-from evidently.tests import TestNumberOfNulls
+from evidently.tests import TestNumberOfMissingValues
 from evidently.tests import TestNumberOfOutListValues
 from evidently.tests import TestNumberOfOutRangeValues
 from evidently.tests import TestNumberOfRows
-from evidently.tests import TestNumberOfRowsWithNulls
+from evidently.tests import TestNumberOfRowsWithMissingValues
 from evidently.tests import TestNumberOfUniqueValues
-from evidently.tests import TestShareOfDriftedFeatures
+from evidently.tests import TestShareOfDriftedColumns
 from evidently.tests import TestShareOfOutListValues
 from evidently.tests import TestShareOfOutRangeValues
 from evidently.tests import TestUniqueValuesShare
 from evidently.tests import TestValueList
-from evidently.tests import TestValueQuantile
 from evidently.tests import TestValueRange
 from evidently.tests.base_test import Test
 
@@ -82,31 +82,31 @@ def test_export_to_json():
     )
 
     tests = [
-        TestNumberOfDriftedFeatures(),
-        TestShareOfDriftedFeatures(),
-        TestFeatureValueDrift(column_name="num_feature_1"),
+        TestNumberOfDriftedColumns(),
+        TestShareOfDriftedColumns(),
+        TestColumnDrift(column_name="num_feature_1"),
         TestNumberOfColumns(),
         TestNumberOfRows(),
-        TestNumberOfNulls(),
-        TestNumberOfColumnsWithNulls(),
-        TestNumberOfRowsWithNulls(),
+        TestNumberOfMissingValues(),
+        TestNumberOfColumnsWithMissingValues(),
+        TestNumberOfRowsWithMissingValues(),
         TestNumberOfConstantColumns(),
         TestNumberOfEmptyRows(),
         TestNumberOfEmptyColumns(),
         TestNumberOfDuplicatedRows(),
         TestNumberOfDuplicatedColumns(),
         TestColumnsType({"num_feature_1": int, "cat_feature_2": str}),
-        TestColumnShareOfNulls(column_name="num_feature_1", gt=5),
-        TestColumnValueRegExp(column_name="cat_feature_2", reg_exp=r"[n|y|n//a]"),
+        TestColumnShareOfMissingValues(column_name="num_feature_1", gt=5),
+        TestColumnRegExp(column_name="cat_feature_2", reg_exp=r"[n|y|n//a]"),
         TestConflictTarget(),
         TestConflictPrediction(),
         TestColumnAllConstantValues(column_name="num_feature_1"),
         TestColumnAllUniqueValues(column_name="num_feature_1"),
-        TestFeatureValueMin(column_name="num_feature_1"),
-        TestFeatureValueMax(column_name="num_feature_1"),
-        TestFeatureValueMean(column_name="num_feature_1"),
-        TestFeatureValueMedian(column_name="num_feature_1"),
-        TestFeatureValueStd(column_name="num_feature_1"),
+        TestColumnValueMin(column_name="num_feature_1"),
+        TestColumnValueMax(column_name="num_feature_1"),
+        TestColumnValueMean(column_name="num_feature_1"),
+        TestColumnValueMedian(column_name="num_feature_1"),
+        TestColumnValueStd(column_name="num_feature_1"),
         TestNumberOfUniqueValues(column_name="num_feature_1"),
         TestUniqueValuesShare(column_name="num_feature_1"),
         TestMostCommonValueShare(column_name="num_feature_1"),
@@ -117,7 +117,7 @@ def test_export_to_json():
         TestValueList(column_name="num_feature_1"),
         TestNumberOfOutListValues(column_name="num_feature_1"),
         TestShareOfOutListValues(column_name="num_feature_1"),
-        TestValueQuantile(column_name="num_feature_1", quantile=0.1, lt=2),
+        TestColumnQuantile(column_name="num_feature_1", quantile=0.1, lt=2),
         ErrorTest(),
     ]
     suite = TestSuite(tests=tests)
@@ -125,39 +125,31 @@ def test_export_to_json():
 
     # assert suite
 
-    json_str = suite.json()
+    suite_json = suite.json()
 
-    assert isinstance(json_str, str)
+    assert isinstance(suite_json, str)
 
-    json_result = json.loads(json_str)
+    result = json.loads(suite_json)
 
-    assert "tests" in json_result
-    assert len(json_result["tests"]) == len(tests)
+    assert "timestamp" in result
+    assert isinstance(result["timestamp"], str)
+    assert "version" in result
+    assert isinstance(result["version"], str)
+    assert "tests" in result
+    assert isinstance(result["tests"], list)
+    assert "summary" in result
+    assert isinstance(result["summary"], dict)
 
-    for test_info in json_result["tests"]:
+    assert len(result["tests"]) == len(tests)
+
+    for test_info in result["tests"]:
         assert "description" in test_info, test_info
         assert "name" in test_info, test_info
         assert "status" in test_info, test_info
         assert "group" in test_info, test_info
         assert "parameters" in test_info, test_info
 
-    assert "datetime" in json_result
-    assert isinstance(json_result["datetime"], str)
-    assert "version" in json_result
-
-    assert "columns_info" in json_result
-    assert json_result["columns_info"] == {
-        "cat_feature_names": ["cat_feature_1", "cat_feature_2"],
-        "datetime_feature_names": [],
-        "num_feature_names": ["num_feature_1", "num_feature_2"],
-        "target_type": "cat",
-        "target_names": None,
-        "task": "classification",
-        "utility_columns": {"date": None, "id_column": None, "prediction": "pred_result", "target": "result"},
-    }
-    assert "summary" in json_result
-
-    summary_result = json_result["summary"]
+    summary_result = result["summary"]
     assert "all_passed" in summary_result, summary_result
     assert summary_result["all_passed"] is False
 

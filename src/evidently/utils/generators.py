@@ -26,14 +26,13 @@ class BaseGenerator(Generic[TObject]):
     For example:
         if you want to create a test generator for 50, 90, 99 quantiles tests
         for all numeric columns with default condition, by reference quantiles
-
-    class TestQuantiles(BaseTestGenerator):
-        def generate(self, columns_info: DatasetColumns) -> List[TestValueQuantile]:
-            return [
-                TestValueQuantile(column_name=name, quantile=quantile)
-                for quantile in (0.5, 0.9, 0.99)
-                for name in columns_info.num_feature_names
-            ]
+    >>> class TestQuantiles(BaseTestGenerator):
+    ...    def generate(self, columns_info: DatasetColumns) -> List[TestValueQuantile]:
+    ...        return [
+    ...            TestColumnQuantile(column_name=name, quantile=quantile)
+    ...            for quantile in (0.5, 0.9, 0.99)
+    ...            for name in columns_info.num_feature_names
+    ...        ]
 
     Do not forget set correct test type for `generate` return value
     """
@@ -47,6 +46,7 @@ def make_generator_by_columns(
     base_class: Type,
     columns: Optional[Union[str, list]] = None,
     parameters: Optional[Dict] = None,
+    skip_id_column: bool = False,
 ) -> BaseGenerator:
     """Create a test generator for a columns list with a test class.
 
@@ -80,7 +80,7 @@ def make_generator_by_columns(
                 columns_for_generation = columns
 
             elif columns == "all" or columns is None:
-                columns_for_generation = columns_info.get_all_columns_list()
+                columns_for_generation = columns_info.get_all_columns_list(skip_id_column=skip_id_column)
 
             elif columns == "cat":
                 columns_for_generation = columns_info.cat_feature_names

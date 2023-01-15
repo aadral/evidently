@@ -8,7 +8,6 @@ from pytest import approx
 
 from evidently import ColumnMapping
 from evidently.calculations.data_quality import ColumnCorrelations
-from evidently.metrics.base_metric import InputData
 from evidently.metrics.data_quality.column_correlations_metric import ColumnCorrelationsMetric
 from evidently.metrics.data_quality.column_correlations_metric import ColumnCorrelationsMetricResult
 from evidently.report import Report
@@ -57,9 +56,10 @@ def test_column_correlations_metric_success(
     metric: ColumnCorrelationsMetric,
     expected_result: ColumnCorrelationsMetricResult,
 ) -> None:
-    result = metric.calculate(
-        data=InputData(current_data=current_dataset, reference_data=reference_dataset, column_mapping=column_mapping)
-    )
+
+    report = Report(metrics=[metric])
+    report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=column_mapping)
+    result = metric.get_result()
     assert result == expected_result
 
 
@@ -100,11 +100,9 @@ def test_column_correlations_metric_value_error(
     error_message: str,
 ) -> None:
     with pytest.raises(ValueError) as error:
-        metric.calculate(
-            data=InputData(
-                current_data=current_dataset, reference_data=reference_dataset, column_mapping=ColumnMapping()
-            )
-        )
+        report = Report(metrics=[metric])
+        report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=ColumnMapping())
+        metric.get_result()
 
     assert error.value.args[0] == error_message
 
@@ -113,7 +111,17 @@ def test_column_correlations_metric_value_error(
     "current_data, reference_data, metric, expected_json",
     (
         (
-            pd.DataFrame({"col": [1, 2, 3]}),
+            pd.DataFrame({"col": [1.4, 2.3, 3.4], "test": ["a", "b", "c"], "test2": ["a", "b", "c"]}),
+            None,
+            ColumnCorrelationsMetric(column_name="col"),
+            {
+                "column_name": "col",
+                "current": {},
+                "reference": None,
+            },
+        ),
+        (
+            pd.DataFrame({"col": ["a", "b", "c"], "test": [1.4, 2.3, 3.4], "test2": [1.4, 2.3, 3.4]}),
             None,
             ColumnCorrelationsMetric(column_name="col"),
             {
@@ -173,9 +181,8 @@ def test_column_correlations_metric_with_report(
     report = Report(metrics=[metric])
     report.run(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
     assert report.show()
-    json_result = report.json()
-    assert len(json_result) > 0
-    parsed_json_result = json.loads(json_result)
-    assert "metrics" in parsed_json_result
-    assert "ColumnCorrelationsMetric" in parsed_json_result["metrics"]
-    assert json.loads(json_result)["metrics"]["ColumnCorrelationsMetric"] == expected_json
+    result_json = report.json()
+    assert len(result_json) > 0
+    result = json.loads(result_json)
+    assert result["metrics"][0]["metric"] == "ColumnCorrelationsMetric"
+    assert result["metrics"][0]["result"] == expected_json

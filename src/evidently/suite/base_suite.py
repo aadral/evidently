@@ -2,6 +2,7 @@ import abc
 import copy
 import json
 import logging
+from datetime import datetime
 from typing import Iterator
 from typing import Optional
 from typing import Tuple
@@ -9,14 +10,11 @@ from typing import Union
 
 import dataclasses
 
-from evidently.dashboard.dashboard import SaveMode
-from evidently.dashboard.dashboard import SaveModeMap
-from evidently.dashboard.dashboard import TemplateParams
-from evidently.dashboard.dashboard import save_data_file
-from evidently.dashboard.dashboard import save_lib_files
+import evidently
 from evidently.metrics.base_metric import ErrorResult
 from evidently.metrics.base_metric import InputData
 from evidently.metrics.base_metric import Metric
+from evidently.options import OptionsProvider
 from evidently.renderers.base_renderer import DEFAULT_RENDERERS
 from evidently.renderers.base_renderer import MetricRenderer
 from evidently.renderers.base_renderer import RenderersDefinitions
@@ -28,6 +26,11 @@ from evidently.tests.base_test import GroupingTypes
 from evidently.tests.base_test import Test
 from evidently.tests.base_test import TestResult
 from evidently.utils import NumpyEncoder
+from evidently.utils.dashboard import SaveMode
+from evidently.utils.dashboard import SaveModeMap
+from evidently.utils.dashboard import TemplateParams
+from evidently.utils.dashboard import save_data_file
+from evidently.utils.dashboard import save_lib_files
 
 
 @dataclasses.dataclass
@@ -84,6 +87,18 @@ class ExecutionError(Exception):
 
 
 class Display:
+    # collection of all possible common options
+    options_provider: OptionsProvider
+
+    def __init__(self, options: Optional[list] = None):
+        if options is None:
+            options = []
+
+        self.options_provider = OptionsProvider()
+
+        for option in options:
+            self.options_provider.add(option)
+
     @abc.abstractmethod
     def _build_dashboard_info(self):
         raise NotImplementedError()
@@ -143,12 +158,24 @@ class Display:
     def as_dict(self) -> dict:
         raise NotImplementedError()
 
+    def _get_json_content(self) -> dict:
+        """Return all data for json representation"""
+        result = {
+            "version": evidently.__version__,
+            "timestamp": str(datetime.now()),
+        }
+        result.update(self.as_dict())
+        return result
+
     def json(self) -> str:
-        return json.dumps(self.as_dict(), cls=NumpyEncoder)
+        return json.dumps(
+            self._get_json_content(),
+            cls=NumpyEncoder,
+        )
 
     def save_json(self, filename):
         with open(filename, "w", encoding="utf-8") as out_file:
-            json.dump(self.as_dict(), out_file, cls=NumpyEncoder)
+            json.dump(self._get_json_content(), out_file, cls=NumpyEncoder)
 
     def _render(self, temple_func, template_params: TemplateParams):
         return temple_func(params=template_params)

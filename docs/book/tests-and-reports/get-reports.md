@@ -1,37 +1,31 @@
 ---
-description: How to generate reports in Evidently.
----
+description: How to use Metric Presets in Evidently.
+---   
 
-{% hint style="info" %} The Report object unites the functionality of Dashboards and JSON Profiles. It is currently in development. We are migrating the existing tabs and sections to the new API. It will also soon be possible to quickly create custom reports from individual Metrics.{% endhint %} 
-
-{% hint style="info" %} If you have any issues, you can continue using Dashboards and JSON Profiles. However, they will be depreciated in the future.{% endhint %}      
+**TL;DR:** Evidently has pre-built Reports that work out of the box. To use them, simply pass your data and choose the Preset. 
 
 # Installation and prep
 
-After [installation](../get-started/install-evidently.md), import the Report component and the required metrics (available soon) and metric presets:
+After [installation](../installation/install-evidently.md), import the `Report` component and the required `metric_presets`:
 
 ```python
 from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
+from evidently.metric_preset import DataDriftPreset, TargetDriftPreset, DataQualityPreset
 ```
 
-You need to prepare two datasets for comparison: **reference** and **current**. You can also generate some of the reports with a single current dataset. 
+You need two datasets for comparison: **reference** and **current**. You can also generate some of the Reports with a single dataset. 
 
 {% hint style="info" %} 
-Refer to the [input data](input-data.md) and [column mapping](column-mapping.md) for more details on data preparation and requirements.
+Refer to the [input data](../input-data/data-requirements.md) and [column mapping](../input-data/column-mapping.md) for more details on data preparation.
 {% endhint %}
 
-# Metric presets 
+# Using metric presets 
 
-Evidently has ready-made `metric_presets` that group relevant metrics together in a single Report. You can use them as templates to evaluate a specific aspect of the data or model performance.
+Evidently has ready-made **Metric Presets** that group relevant Metrics in a single Report. You can use them as templates to evaluate a specific aspect of the data or model performance.
 
-You need to create a `report` object and specify the preset to generate. You should also point to the current dataset and reference dataset (if available).
+To use the Preset, create a `Report` object and specify the chosen `preset` in a list of `metrics`. You should also point to the current and reference dataset (if available). The Report will run with the default parameters if nothing else is specified.
 
-If nothing else is specified, the reports will run with the default parameters.
-
-## How to run metric presets
-
-**Example**. To generate the report for Data Drift together with numerical Target Drift:
+**Example 1**. To generate the Report that includes two Presets for Data and Target Drift:
 
 ```python
 drift_report = Report(metrics=[DataDriftPreset(), TargetDriftPreset()])
@@ -42,9 +36,20 @@ drift_report
  
 It will display the HTML combined report. 
 
-## Available presets
+**Example 2**. To generate the Report for a single dataset:
 
-Here is a list of metric presets you can try:
+```python
+data_quality_report = Report(metrics=[
+    DataQualityPreset()
+])
+
+data_quality_report.run(current_data=current, reference_data = None, column_mapping=None)
+data_quality_report
+```
+
+# Available presets
+
+Here is a list of Metric Presets you can try:
 
 ```python
 DataQualityPreset
@@ -54,11 +59,15 @@ RegressionPreset
 ClassificationPreset
 ```
 
-## Output formats 
+{% hint style="info" %} 
+Refer to the [Presets overview](../presets/all-presets.md) to understand when to use each Preset. Refer to the [example notebooks](../examples/examples.md) to see interactive examples.
+{% endhint %}
 
-You can get the test results in different formats. 
+# Output formats 
 
-**HTML**. You can get an interactive visual report. It is best for exploration and debugging. You can also document еру results and share them with the team. 
+You can get the Report results in different formats. 
+
+**HTML**. You can get an interactive visual report. It is best for exploration and debugging. You can also document the results and share them with the team. 
 
 To see in Jupyter notebook or Colab, call the object: 
 
@@ -72,7 +81,11 @@ To export HTML as a separate file:
 drift_report.save_html(“file.html”)
 ```
 
-**JSON**. You can get the results of the calculation as a JSON. It is best for test automation and integration in your prediction pipelines. 
+{% hint style="info" %} 
+Reports contain interactive visualizations inside the HTML, so large reports might take time to load. In this case, downsample your data. 
+{% endhint %}
+
+**JSON**. You can get the results of the calculation as a JSON. It is best for automation and integration in your prediction pipelines. 
 
 To get the JSON:
 
@@ -93,3 +106,18 @@ To get the dictionary:
 ```python
 drift_report.as_dict()
 ```
+
+# Preset parameters 
+
+You can customize some of the Presets using parameters. For example, you can calculate the quality metrics for a binary probabilistic classification model with a custom decision threshold:
+
+```python
+dataset_report = Report(metrics=[
+    ClassificationQualityMetric(probas_threshold=0.5),
+])
+```
+{% hint style="info" %} 
+Refer to the [All metrics](../reference/all-metrics.md) table to see available parameters that you can pass for each preset.
+{% endhint %}
+
+If you want to change the composition of the Report or pass additional parameters, you can [create a custom report](custom-report.md).

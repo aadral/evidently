@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 
 from evidently import ColumnMapping
-from evidently.metrics.base_metric import InputData
-from evidently.metrics.classification_performance.confusion_matrix_metric import ClassificationConfusionMatrix
+from evidently.metrics import ClassificationConfusionMatrix
+from evidently.report import Report
 
 
 @pytest.mark.parametrize(
@@ -43,13 +43,9 @@ from evidently.metrics.classification_performance.confusion_matrix_metric import
 )
 def test_confusion_matrix(current, expected_labels, expected_matrix):
     metric = ClassificationConfusionMatrix(None, None)
-    results = metric.calculate(
-        data=InputData(
-            reference_data=None,
-            current_data=current,
-            column_mapping=ColumnMapping(),
-        )
-    )
+    report = Report(metrics=[metric])
+    report.run(current_data=current, reference_data=None, column_mapping=ColumnMapping())
+    results = metric.get_result()
 
     assert results.reference_matrix is None
 

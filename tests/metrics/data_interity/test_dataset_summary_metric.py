@@ -6,7 +6,6 @@ import pytest
 
 from evidently import ColumnMapping
 from evidently.metrics import DatasetSummaryMetric
-from evidently.metrics.base_metric import InputData
 from evidently.metrics.data_integrity.dataset_summary_metric import DatasetSummary
 from evidently.metrics.data_integrity.dataset_summary_metric import DatasetSummaryMetricResult
 from evidently.report import Report
@@ -38,6 +37,11 @@ from evidently.report import Report
                     number_of_almost_constant_columns=0,
                     number_of_duplicated_columns=0,
                     number_of_almost_duplicated_columns=0,
+                    number_of_empty_rows=0,
+                    number_of_duplicated_rows=0,
+                    columns_type={},
+                    nans_by_columns={},
+                    number_uniques_by_columns={},
                 ),
                 reference=None,
             ),
@@ -60,11 +64,16 @@ from evidently.report import Report
                     number_of_categorical_columns=0,
                     number_of_numeric_columns=0,
                     number_of_datetime_columns=0,
-                    number_of_empty_columns=0,
                     number_of_constant_columns=0,
                     number_of_almost_constant_columns=0,
                     number_of_duplicated_columns=0,
                     number_of_almost_duplicated_columns=0,
+                    number_of_empty_rows=0,
+                    number_of_empty_columns=0,
+                    number_of_duplicated_rows=0,
+                    columns_type={"target": np.dtype("O"), "prediction": np.dtype("O")},
+                    nans_by_columns={"target": 0, "prediction": 0},
+                    number_uniques_by_columns={"target": 3, "prediction": 3},
                 ),
                 reference=DatasetSummary(
                     target="target",
@@ -77,11 +86,16 @@ from evidently.report import Report
                     number_of_categorical_columns=0,
                     number_of_numeric_columns=0,
                     number_of_datetime_columns=0,
-                    number_of_empty_columns=0,
                     number_of_constant_columns=0,
                     number_of_almost_constant_columns=0,
                     number_of_duplicated_columns=0,
                     number_of_almost_duplicated_columns=0,
+                    number_of_empty_rows=0,
+                    number_of_empty_columns=0,
+                    number_of_duplicated_rows=0,
+                    columns_type={"target": np.dtype("int64"), "prediction": np.dtype("float64")},
+                    nans_by_columns={"target": 0, "prediction": 1},
+                    number_uniques_by_columns={"target": 5, "prediction": 4},
                 ),
             ),
         ),
@@ -94,9 +108,9 @@ def test_dataset_summary_metric_success(
     metric: DatasetSummaryMetric,
     expected_result: DatasetSummaryMetricResult,
 ) -> None:
-    result = metric.calculate(
-        data=InputData(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
-    )
+    report = Report(metrics=[metric])
+    report.run(current_data=current_data, reference_data=reference_data, column_mapping=column_mapping)
+    result = metric.get_result()
     assert result == expected_result
 
 
@@ -129,9 +143,9 @@ def test_dataset_summary_metric_value_error(
     metric: DatasetSummaryMetric,
 ) -> None:
     with pytest.raises(ValueError):
-        metric.calculate(
-            data=InputData(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
-        )
+        report = Report(metrics=[metric])
+        report.run(current_data=current_data, reference_data=reference_data, column_mapping=ColumnMapping())
+        metric.get_result()
 
 
 @pytest.mark.parametrize(
@@ -147,6 +161,7 @@ def test_dataset_summary_metric_value_error(
                 "current": {
                     "date_column": None,
                     "id_column": None,
+                    "nans_by_columns": {},
                     "number_of_almost_constant_columns": 0,
                     "number_of_almost_duplicated_columns": 0,
                     "number_of_categorical_columns": 0,
@@ -154,10 +169,13 @@ def test_dataset_summary_metric_value_error(
                     "number_of_constant_columns": 0,
                     "number_of_datetime_columns": 0,
                     "number_of_duplicated_columns": 0,
+                    "number_of_duplicated_rows": 0,
                     "number_of_empty_columns": 0,
+                    "number_of_empty_rows": 0,
                     "number_of_missing_values": 0.0,
                     "number_of_numeric_columns": 0,
                     "number_of_rows": 0,
+                    "number_uniques_by_columns": {},
                     "prediction": None,
                     "target": None,
                 },
@@ -174,23 +192,28 @@ def test_dataset_summary_metric_value_error(
                 "current": {
                     "date_column": None,
                     "id_column": None,
+                    "nans_by_columns": {"test1": 0, "test2": 0, "test3": 0},
                     "number_of_almost_constant_columns": 1,
                     "number_of_almost_duplicated_columns": 1,
                     "number_of_categorical_columns": 0,
                     "number_of_columns": 3,
                     "number_of_constant_columns": 1,
                     "number_of_datetime_columns": 0,
-                    "number_of_duplicated_columns": 0,
+                    "number_of_duplicated_columns": 1,
+                    "number_of_duplicated_rows": 0,
                     "number_of_empty_columns": 0,
+                    "number_of_empty_rows": 0,
                     "number_of_missing_values": 0,
                     "number_of_numeric_columns": 3,
                     "number_of_rows": 3,
+                    "number_uniques_by_columns": {"test1": 3, "test2": 3, "test3": 1},
                     "prediction": None,
                     "target": None,
                 },
                 "reference": {
                     "date_column": None,
                     "id_column": None,
+                    "nans_by_columns": {"test2": 0, "test3": 0, "test4": 0},
                     "number_of_almost_constant_columns": 2,
                     "number_of_almost_duplicated_columns": 0,
                     "number_of_categorical_columns": 1,
@@ -198,10 +221,13 @@ def test_dataset_summary_metric_value_error(
                     "number_of_constant_columns": 2,
                     "number_of_datetime_columns": 0,
                     "number_of_duplicated_columns": 0,
+                    "number_of_duplicated_rows": 0,
                     "number_of_empty_columns": 0,
+                    "number_of_empty_rows": 0,
                     "number_of_missing_values": 0,
                     "number_of_numeric_columns": 2,
                     "number_of_rows": 3,
+                    "number_uniques_by_columns": {"test2": 1, "test3": 1, "test4": 3},
                     "prediction": None,
                     "target": None,
                 },
@@ -221,7 +247,6 @@ def test_dataset_summary_metric_with_report(
     assert report.show()
     json_result = report.json()
     assert len(json_result) > 0
-    parsed_json_result = json.loads(json_result)
-    assert "metrics" in parsed_json_result
-    assert "DatasetSummaryMetric" in parsed_json_result["metrics"]
-    assert json.loads(json_result)["metrics"]["DatasetSummaryMetric"] == expected_json
+    result = json.loads(json_result)
+    assert result["metrics"][0]["metric"] == "DatasetSummaryMetric"
+    assert result["metrics"][0]["result"] == expected_json

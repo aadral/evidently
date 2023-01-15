@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 from typing import List
 from typing import Optional
 from typing import Union
@@ -13,12 +12,14 @@ from evidently.metrics.base_metric import InputData
 from evidently.metrics.base_metric import Metric
 from evidently.model.dashboard import DashboardInfo
 from evidently.model.widget import AdditionalGraphInfo
+from evidently.options import ColorOptions
 from evidently.renderers.base_renderer import DetailsInfo
 from evidently.suite.base_suite import Display
 from evidently.suite.base_suite import Suite
 from evidently.suite.base_suite import find_metric_renderer
 from evidently.utils.data_operations import DatasetColumns
 from evidently.utils.data_operations import process_columns
+from evidently.utils.data_preprocessing import create_data_definition
 from evidently.utils.generators import BaseGenerator
 
 
@@ -28,8 +29,8 @@ class Report(Display):
     _first_level_metrics: List[Union[Metric]]
     metrics: List[Union[Metric, MetricPreset, BaseGenerator]]
 
-    def __init__(self, metrics: List[Union[Metric, MetricPreset, BaseGenerator]]):
-        super().__init__()
+    def __init__(self, metrics: List[Union[Metric, MetricPreset, BaseGenerator]], options: Optional[List] = None):
+        super().__init__(options)
         # just save all metrics and metric presets
         self.metrics = metrics
         self._inner_suite = Suite()
@@ -49,7 +50,8 @@ class Report(Display):
             raise ValueError("Current dataset should be present")
 
         self._columns_info = process_columns(current_data, column_mapping)
-        data = InputData(reference_data, current_data, column_mapping)
+        data_definition = create_data_definition(reference_data, current_data, column_mapping)
+        data = InputData(reference_data, current_data, column_mapping, data_definition)
 
         # get each item from metrics/presets and add to metrics list
         # do it in one loop because we want to save metrics and presets order
@@ -90,27 +92,36 @@ class Report(Display):
         self._inner_suite.run_calculate(data)
 
     def as_dict(self) -> dict:
-        metrics_dicts = {}
+        metrics = []
+
         for metric in self._first_level_metrics:
             renderer = find_metric_renderer(type(metric), self._inner_suite.context.renderers)
-            metrics_dicts[metric.get_id()] = renderer.render_json(metric)
-        return dict(
-            timestamp=str(datetime.now()),
-            metrics=metrics_dicts,
-        )
+            metrics.append({"metric": metric.get_id(), "result": renderer.render_json(metric)})
+
+        return {
+            "metrics": metrics,
+        }
 
     def _build_dashboard_info(self):
         metrics_results = []
         additional_graphs = []
+
+        color_options = self.options_provider.get(ColorOptions)
+
         for test in self._first_level_metrics:
             renderer = find_metric_renderer(type(test), self._inner_suite.context.renderers)
+            # set the color scheme from the report for each render
+            renderer.color_options = color_options
             html_info = renderer.render_html(test)
+
             for info_item in html_info:
                 for additional_graph in info_item.get_additional_graphs():
                     if isinstance(additional_graph, AdditionalGraphInfo):
                         additional_graphs.append(DetailsInfo("", additional_graph.params, additional_graph.id))
+
                     else:
                         additional_graphs.append(DetailsInfo("", additional_graph, additional_graph.id))
+
             metrics_results.extend(html_info)
 
         return (

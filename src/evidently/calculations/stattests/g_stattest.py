@@ -1,5 +1,27 @@
-#!/usr/bin/env python
-# coding: utf-8
+"""G-test of two samples.
+
+Name: "g_test"
+
+Import:
+
+    >>> from evidently.calculations.stattests import g_test
+
+Properties:
+- only for categorical features
+- returns p-value
+
+Example:
+    Using by object:
+
+    >>> from evidently.options import DataDriftOptions
+    >>> from evidently.calculations.stattests import g_test
+    >>> options = DataDriftOptions(all_features_stattest=g_test)
+
+    Using by name:
+
+    >>> from evidently.options import DataDriftOptions
+    >>> options = DataDriftOptions(all_features_stattest="g_test")
+"""
 from typing import Tuple
 
 import pandas as pd
@@ -21,7 +43,7 @@ def _g_stat_test(
         reference_data: reference data
         current_data: current data
         feature_type: feature type
-        threshold: all values above this threshold means data drift
+        threshold: level of significance
     Returns:
         p_value: calculated p_value value
         test_result: whether the drift is detected
@@ -36,10 +58,7 @@ def _g_stat_test(
 
 
 g_test = StatTest(
-    name="g_test",
-    display_name="g_test",
-    func=_g_stat_test,
-    allowed_feature_types=["cat"],
+    name="g_test", display_name="g_test", func=_g_stat_test, allowed_feature_types=["cat"], default_threshold=0.1
 )
 
 register_stattest(g_test)

@@ -1,10 +1,13 @@
-from .cat_target_drift import CatTargetDrift
-from .classification_performance import ClassificationPerformance
 from .classification_performance import ClassificationPreset
 from .data_drift import DataDriftPreset
-from .data_quality import DataQuality
 from .data_quality import DataQualityPreset
-from .num_target_drift import NumTargetDrift
-from .regression_performance import RegressionPerformance
 from .regression_performance import RegressionPreset
 from .target_drift import TargetDriftPreset
+
+__all__ = [
+    ClassificationPreset.__name__,
+    DataDriftPreset.__name__,
+    DataQualityPreset.__name__,
+    RegressionPreset.__name__,
+    TargetDriftPreset.__name__,
+]
