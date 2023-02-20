@@ -22,6 +22,19 @@ def test_data_quality_quantile_metric_success() -> None:
     assert result.current.value == 2
 
 
+def test_data_quality_quantile_metric_spark_success(spark_session) -> None:
+    spark_df = spark_session.createDataFrame([[0], [2], [2], [2], [0]], "numerical_feature: int")
+    test_dataset = spark_df.pandas_api()
+    data_mapping = ColumnMapping()
+    metric = ColumnQuantileMetric(column_name="numerical_feature", quantile=0.5)
+    report = Report(metrics=[metric])
+    report.run(current_data=test_dataset, reference_data=None, column_mapping=data_mapping)
+    result = metric.get_result()
+    assert result is not None
+    assert result.quantile == 0.5
+    assert result.current == 2
+
+
 @pytest.mark.parametrize(
     "current_dataset, reference_dataset, metric, error_message",
     (
