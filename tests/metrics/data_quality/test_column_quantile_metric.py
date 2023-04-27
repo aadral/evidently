@@ -32,7 +32,7 @@ def test_data_quality_quantile_metric_spark_success(spark_session) -> None:
     result = metric.get_result()
     assert result is not None
     assert result.quantile == 0.5
-    assert result.current == 2
+    assert result.current.value == 2
 
 
 @pytest.mark.parametrize(
