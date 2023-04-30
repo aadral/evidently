@@ -8,6 +8,7 @@ import pytest
 from evidently import ColumnMapping
 from evidently.metrics import ColumnQuantileMetric
 from evidently.report import Report
+from evidently.utils.spark import fixup_pandas_df_for_big_data
 
 
 def test_data_quality_quantile_metric_success() -> None:
@@ -81,6 +82,72 @@ def test_data_quality_quantile_metric_value_errors(
     with pytest.raises(ValueError) as error:
         report = Report(metrics=[metric])
         report.run(current_data=current_dataset, reference_data=reference_dataset, column_mapping=data_mapping)
+        metric.get_result()
+
+    assert error.value.args[0] == error_message
+
+
+@pytest.mark.parametrize(
+    "current_dataset, reference_dataset, metric, error_message",
+    (
+        (
+            pd.DataFrame({"feature": [1, 2, 3]}),
+            None,
+            ColumnQuantileMetric(column_name="test", quantile=0.5),
+            "Column 'test' is not in data.",
+        ),
+        (
+            pd.DataFrame({"test": [1, 2, 3]}),
+            pd.DataFrame({"feature": [1, 2, 3]}),
+            ColumnQuantileMetric(column_name="test", quantile=0.5),
+            "Column 'test' is not in data.",
+        ),
+        (
+            pd.DataFrame({"category_feature": ["a", "b", "c"]}),
+            None,
+            ColumnQuantileMetric(column_name="category_feature", quantile=0.5),
+            "Column 'category_feature' in current data is not numeric.",
+        ),
+        (
+            pd.DataFrame({"feature": [1, 2, 3]}),
+            pd.DataFrame({"feature": [1, 2, "a"]}),
+            ColumnQuantileMetric(column_name="feature", quantile=0.5),
+            "Column 'feature' in reference data is not numeric.",
+        ),
+        (
+            pd.DataFrame({"feature": [1, 2, 3]}),
+            None,
+            ColumnQuantileMetric(column_name="feature", quantile=-0.5),
+            "Quantile should all be in the interval (0, 1].",
+        ),
+    ),
+)
+def test_data_quality_quantile_metric_spark_value_errors(
+    current_dataset: pd.DataFrame,
+    reference_dataset: Optional[pd.DataFrame],
+    metric: ColumnQuantileMetric,
+    error_message: str,
+    spark_session,
+) -> None:
+    data_mapping = ColumnMapping()
+
+    fixup_pandas_df_for_big_data(current_dataset)
+    spark_current_df = spark_session.createDataFrame(current_dataset)
+    pandas_spark_current_df = spark_current_df.pandas_api()
+
+    pandas_spark_reference_df = None
+    if reference_dataset is not None:
+        fixup_pandas_df_for_big_data(reference_dataset)
+        spark_reference_df = spark_session.createDataFrame(reference_dataset)
+        pandas_spark_reference_df = spark_reference_df.pandas_api()
+
+    with pytest.raises(ValueError) as error:
+        report = Report(metrics=[metric])
+        report.run(
+            current_data=pandas_spark_current_df,
+            reference_data=pandas_spark_reference_df,
+            column_mapping=data_mapping
+        )
         metric.get_result()
 
     assert error.value.args[0] == error_message
