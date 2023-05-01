@@ -53,8 +53,3 @@ def pandas_or_spark_session(_pandas_or_spark_session):
     else:
         reduce_logging(_pandas_or_spark_session.sparkContext)
         yield _pandas_or_spark_session
-
-
-def pytest_generate_tests(metafunc):
-    if "spark_test" in metafunc.fixturenames:
-        pass
