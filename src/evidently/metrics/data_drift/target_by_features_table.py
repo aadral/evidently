@@ -19,10 +19,10 @@ from evidently.calculations.classification_performance import get_prediction_dat
 from evidently.features.non_letter_character_percentage_feature import NonLetterCharacterPercentage
 from evidently.features.OOV_words_percentage_feature import OOVWordsPercentage
 from evidently.features.text_length_feature import TextLength
-from evidently.metric_results import PredictionData
 from evidently.metric_results import StatsByFeature
 from evidently.model.widget import AdditionalGraphInfo
 from evidently.model.widget import BaseWidgetInfo
+from evidently.options.base import AnyOptions
 from evidently.renderers.base_renderer import MetricRenderer
 from evidently.renderers.base_renderer import default_renderer
 from evidently.utils.data_operations import process_columns
@@ -49,7 +49,8 @@ class TargetByFeaturesTable(Metric[TargetByFeaturesTableResults]):
         ]
     ]
 
-    def __init__(self, columns: Optional[List[str]] = None):
+    def __init__(self, columns: Optional[List[str]] = None, options: AnyOptions = None):
+        super().__init__(options=options)
         self.columns = columns
         self.text_features_gen = None
 
@@ -83,6 +84,14 @@ class TargetByFeaturesTable(Metric[TargetByFeaturesTableResults]):
         return ()
 
     def calculate(self, data: InputData) -> TargetByFeaturesTableResults:
+        if not self.get_options().render_options.raw_data:
+            return TargetByFeaturesTableResults(
+                current=StatsByFeature(plot_data=pd.DataFrame()),
+                reference=None,
+                target_name=None,
+                columns=[],
+                task="",
+            )
         dataset_columns = process_columns(data.current_data, data.column_mapping)
         target_name = dataset_columns.utility_columns.target
         prediction_name = dataset_columns.utility_columns.prediction
@@ -195,6 +204,8 @@ class TargetByFeaturesTable(Metric[TargetByFeaturesTableResults]):
 @default_renderer(wrap_type=TargetByFeaturesTable)
 class TargetByFeaturesTableRenderer(MetricRenderer):
     def render_html(self, obj: TargetByFeaturesTable) -> List[BaseWidgetInfo]:
+        if not obj.get_options().render_options.raw_data:
+            return []
         result = obj.get_result()
         current_data = result.current.plot_data
         # todo: better typing

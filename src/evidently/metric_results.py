@@ -17,8 +17,14 @@ from evidently.core import IncludeTags
 from evidently.pipeline.column_mapping import TargetNames
 
 Label = Union[int, str]
+
+
 ScatterData = Union[pd.Series, List[float], pd.Index]
+ContourData = Tuple[np.ndarray, List[float], List[float]]
 ColumnScatter = Dict[Label, ScatterData]
+
+ScatterAggData = Union[pd.DataFrame]
+ColumnAggScatter = Dict[Label, ScatterAggData]
 
 
 class Distribution(MetricResult):
@@ -159,6 +165,19 @@ def column_scatter_from_df(df: Optional[pd.DataFrame], with_index: bool) -> Opti
     return data
 
 
+class ScatterAggField(MetricResult):
+    class Config:
+        smart_union = True
+        dict_include = False
+        pd_include = False
+
+        tags = {IncludeTags.Render}
+
+    scatter: ColumnAggScatter
+    x_name: str
+    plot_shape: Dict[str, float]
+
+
 class ScatterField(MetricResult):
     class Config:
         smart_union = True
@@ -182,6 +201,12 @@ class ColumnScatterResult(MetricResult):
     current: ColumnScatter
     reference: Optional[ColumnScatter]
     x_name: str
+    x_name_ref: Optional[str] = None
+
+
+class ColumnAggScatterResult(ColumnScatterResult):
+    current: ColumnAggScatter
+    reference: Optional[ColumnAggScatter]
 
 
 PlotData = List[float]
