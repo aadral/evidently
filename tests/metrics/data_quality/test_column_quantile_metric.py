@@ -9,7 +9,7 @@ from evidently import ColumnMapping
 from evidently.metrics import ColumnQuantileMetric
 from evidently.report import Report
 
-from tests.utils.spark import convert_pandas_to_spark_df_if_necessary
+from tests.utils.spark import convert_pandas_to_spark_df_if_necessary, fixup_json_if_necessary
 
 
 def test_data_quality_quantile_metric_success() -> None:
@@ -93,7 +93,7 @@ def test_data_quality_quantile_metric_value_errors(
 
 
 @pytest.mark.parametrize(
-    "current, reference, column_mapping, metric, expected_json",
+    "current, reference, column_mapping, metric, expected_json, spark_fixup_json",
     (
         (
             pd.DataFrame({"numerical_feature": [0, 4, 1, 2, np.NaN]}),
@@ -106,6 +106,12 @@ def test_data_quality_quantile_metric_value_errors(
                 "current": {"value": 1.5},
                 "quantile": 0.5,
                 "reference": {"value": 2.0},
+            },
+            {
+                # spark quantile computation uses interpolation "approx"
+                # which is more inline with "higher" option for pandas DF
+                # while pandas DF uses "linear" interpolation by default
+                "current": {"value": 2.0},
             },
         ),
         (
@@ -127,6 +133,7 @@ def test_data_quality_quantile_metric_value_errors(
                 "quantile": 0.5,
                 "reference": None,
             },
+            {},
         ),
         (
             pd.DataFrame(
@@ -154,6 +161,12 @@ def test_data_quality_quantile_metric_value_errors(
                 "quantile": 0.5,
                 "reference": {"value": 2.0},
             },
+            {
+                # spark quantile computation uses interpolation "approx"
+                # which is more inline with "higher" option for pandas DF
+                # while pandas DF uses "linear" interpolation by default
+                "current": {"value": 3.0},
+            },
         ),
     ),
 )
@@ -163,10 +176,12 @@ def test_column_quantile_metric_with_report(
     column_mapping: ColumnMapping,
     metric: ColumnQuantileMetric,
     expected_json: dict,
+    spark_fixup_json: dict,
     pandas_or_spark_session,
 ) -> None:
     current = convert_pandas_to_spark_df_if_necessary(current, pandas_or_spark_session)
     reference = convert_pandas_to_spark_df_if_necessary(reference, pandas_or_spark_session)
+    expected_json = fixup_json_if_necessary(expected_json, spark_fixup_json, pandas_or_spark_session)
 
     report = Report(metrics=[metric])
     report.run(current_data=current, reference_data=reference, column_mapping=column_mapping)
