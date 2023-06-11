@@ -6,7 +6,7 @@ from pytest_spark.util import reduce_logging
 
 IS_PYSPARK_AVAILABLE = True
 try:
-    from pyspark.sql import SparkSession
+    from pyspark.sql import SparkSession  # pylint: disable=import-error,F401
 except ImportError:
     IS_PYSPARK_AVAILABLE = False
 
@@ -17,6 +17,7 @@ def pytest_collection_modifyitems(config, items):
     if not IS_PYSPARK_AVAILABLE:
         skip_spark = pytest.mark.skip(reason="need pyspark to run spark related unit tests")
         for item in items:
+            # TODO: validate that it covers both spark_session and pandas_or_spark_session (indirectly)
             if "spark_session" in item.fixturenames:
                 item.add_marker(skip_spark)
 
